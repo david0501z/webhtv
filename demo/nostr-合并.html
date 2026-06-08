@@ -6009,25 +6009,44 @@
     }
 
     function doubanDetailUrl(item) {
-      // 豆瓣详情需要通过其他方式获取，这里使用搜索结果中的信息
-      return "";
+      const doubanId = item && item.doubanId ? String(item.doubanId).trim() : "";
+      if (!doubanId) return "";
+      const url = new URL(`${window.WEBHOME_CONFIG.douban.apiBase}/subject_abstract`);
+      url.searchParams.set("subject_id", doubanId);
+      return url.toString();
     }
 
     function doubanRecommendationsUrl(item) {
-      // 豆瓣推荐接口有限，这里使用相同类型/标签的列表作为推荐
-      return "";
+      const doubanId = item && item.doubanId ? String(item.doubanId).trim() : "";
+      if (!doubanId) return "";
+      const url = new URL(`${window.WEBHOME_CONFIG.douban.apiBase}/search_subjects`);
+      url.searchParams.set("type", item.mediaType === "tv" ? "tv" : "movie");
+      url.searchParams.set("tag", "热门");
+      url.searchParams.set("page_limit", "18");
+      url.searchParams.set("page_start", "0");
+      return url.toString();
     }
 
     function doubanSeasonUrl(item, seasonNumber) {
-      return "";
+      const doubanId = item && item.doubanId ? String(item.doubanId).trim() : "";
+      if (!doubanId) return "";
+      const url = new URL(`${window.WEBHOME_CONFIG.douban.apiBase}/subject_abstract`);
+      url.searchParams.set("subject_id", doubanId);
+      return url.toString();
     }
 
     function doubanPersonUrl(personId) {
-      return "";
+      if (!personId) return "";
+      const url = new URL(`${window.WEBHOME_CONFIG.douban.apiBase}/celebrity`);
+      url.searchParams.set("celebrity_id", String(personId));
+      return url.toString();
     }
 
     function doubanPersonDetailUrl(personId) {
-      return "";
+      if (!personId) return "";
+      const url = new URL(`${window.WEBHOME_CONFIG.douban.apiBase}/celebrity`);
+      url.searchParams.set("celebrity_id", String(personId));
+      return url.toString();
     }
 
     function imageUrl(path, backdrop) {
@@ -8251,22 +8270,96 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
 
     async function loadDetail(item) {
       try {
-        // 豆瓣详情暂无开放接口，这里使用已有的数据
-        const body = {
-          overview: item.desc || item.remark || "",
-          title: item.title || "",
-          poster_path: item.pic || item.image || "",
-          genres: [],
-          runtime: item.remark || ""
-        };
-        if (!body || state.selected !== item) return;
+        const detailUrl = doubanDetailUrl(item);
+        if (!detailUrl) {
+          throw new Error("豆瓣ID为空");
+        }
+        const rawBody = await requestJson(detailUrl, 18);
+        if (state.selected !== item) return;
+        const body = normalizeDoubanDetail(rawBody, item);
         state.detail = body;
         renderDetailExtras(item, body);
       } catch (e) {
-        setDetailTextContent(`详情加载失败：${e.message || "unknown"}`);
-        scheduleDetailTextClamp();
-        toast("详情加载失败");
+        const fallback = {
+          overview: item.desc || item.remark || "",
+          title: item.title || "",
+          poster_path: item.pic || item.image || "",
+          backdrop_path: item.landscape || item.image || "",
+          genres: [],
+          runtime: "",
+          release_date: item.releaseDate || "",
+          first_air_date: item.releaseDate || "",
+          original_name: item.title || "",
+          credits: { cast: [], crew: [] }
+        };
+        state.detail = fallback;
+        renderDetailExtras(item, fallback);
       }
+    }
+
+    function normalizeDoubanDetail(raw, item) {
+      const data = raw && typeof raw === "object" ? raw : {};
+      const title = data.title || item.title || "";
+      const rate = data.rate || data.rating || (data.rating && data.rating.average) || item.remark || "";
+      const cover = data.cover || data.cover_url || data.poster || item.pic || "";
+      const intro = data.intro || data.summary || data.description || item.desc || "";
+      const type = data.type || data.subtype || item.mediaType || "";
+      const year = data.year || "";
+      const date = data.pubdate || (Array.isArray(data.pubdates) && data.pubdates[0]) || "";
+      const runtimes = data.runtime || (Array.isArray(data.durations) && data.durations[0]) || "";
+      const countries = data.country || (Array.isArray(data.countries) && data.countries.join(" / ")) || "";
+      const languages = data.language || (Array.isArray(data.languages) && data.languages.join(" / ")) || "";
+
+      const rawGenres = data.genre || (Array.isArray(data.genres) && data.genres) || [];
+      const genres = rawGenres.map((name) => typeof name === "string" ? { name, id: 0 } : name && name.name ? name : { name: String(name), id: 0 }).filter(Boolean);
+
+      const directorsRaw = data.director || (Array.isArray(data.directors) && data.directors) || [];
+      const castRaw = data.cast || data.actor || (Array.isArray(data.actors) && data.actors) || [];
+
+      const buildPerson = (raw, defaultRole) => {
+        if (!raw) return null;
+        if (typeof raw === "string") return { name: raw, id: "", profile_path: "", character: defaultRole || "" };
+        const id = String(raw.id || raw.celebrity_id || raw.douban_id || "");
+        return {
+          id,
+          name: raw.name || raw.title || "",
+          character: raw.role || raw.character || defaultRole || "",
+          profile_path: raw.cover || raw.avatar || raw.poster || "",
+          known_for_department: defaultRole === "导演" ? "Directing" : "Acting"
+        };
+      };
+
+      const directors = directorsRaw.map((value) => buildPerson(value, "导演")).filter(Boolean);
+      const cast = castRaw.map((value) => buildPerson(value, "演员")).filter(Boolean).slice(0, 20);
+
+      const episodesCount = data.episodes_count || data.episodes || "";
+      const seasonsCount = type === "tv" ? (data.seasons_count || 1) : 0;
+      const status = data.status || (type === "tv" ? "已完结" : "");
+
+      return {
+        title,
+        name: title,
+        original_name: data.original_title || data.original_name || title,
+        overview: intro || `${title}  ${genres.map((g) => g.name).filter(Boolean).slice(0, 3).join(" / ")}  ${year || ""}`,
+        poster_path: cover,
+        backdrop_path: cover,
+        vote_average: parseFloat(rate) || 0,
+        vote_count: 0,
+        popularity: parseFloat(rate) || 0,
+        release_date: typeof date === "string" ? date : date && date[0] || "",
+        first_air_date: typeof date === "string" ? date : date && date[0] || "",
+        runtime: typeof runtimes === "number" ? runtimes : parseInt(String(runtimes || "0").replace(/[^0-9]/g, "")) || 0,
+        episode_run_time: typeof runtimes === "number" ? [runtimes] : [parseInt(String(runtimes || "0").replace(/[^0-9]/g, "")) || 0].filter((n) => n > 0),
+        number_of_episodes: parseInt(String(episodesCount || "0").replace(/[^0-9]/g, "")) || 0,
+        number_of_seasons: seasonsCount,
+        status: status || (date ? "已上映" : "未上映"),
+        origin_country: Array.isArray(countries) ? countries : countries ? [countries] : [],
+        original_language: languages || "",
+        genres,
+        credits: { cast, crew: directors },
+        directors: directors.map((d) => d && d.name).filter(Boolean),
+        seasons: type === "tv" ? [{ season_number: 1, name: "第1季", episode_count: parseInt(String(episodesCount || "0").replace(/[^0-9]/g, "")) || 0 }] : []
+      };
     }
 
     function renderDetailExtras(item, detail) {
@@ -8799,8 +8892,56 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
     }
 
     async function loadSeason(item, seasonNumber) {
-      // 豆瓣暂无季/分集数据，这里显示为空
-      $("episodeRail").replaceChildren(emptyNode("暂无分集数据"));
+      try {
+        const detail = state.detail || {};
+        const totalEpisodes = parseInt(String(detail.number_of_episodes || detail.episodes_count || 0).replace(/[^0-9]/g, "")) || 0;
+        const episodes = [];
+        if (totalEpisodes > 0) {
+          for (let index = 1; index <= Math.min(totalEpisodes, 60); index++) {
+            episodes.push({
+              episode_number: index,
+              name: `第${index}集`,
+              air_date: "",
+              overview: "暂无分集剧情",
+              still_path: ""
+            });
+          }
+        } else {
+          const detailUrl = doubanSeasonUrl(item, seasonNumber);
+          if (detailUrl) {
+            try {
+              const rawBody = await requestJson(detailUrl, 18);
+              const body = normalizeDoubanDetail(rawBody, item);
+              const total = parseInt(String(body.number_of_episodes || 0).replace(/[^0-9]/g, "")) || 0;
+              for (let index = 1; index <= Math.min(total, 60); index++) {
+                episodes.push({
+                  episode_number: index,
+                  name: `第${index}集`,
+                  air_date: "",
+                  overview: "暂无分集剧情",
+                  still_path: ""
+                });
+              }
+            } catch (e) {
+              // 忽略，使用默认的 30 集
+            }
+          }
+          if (!episodes.length) {
+            for (let index = 1; index <= 30; index++) {
+              episodes.push({
+                episode_number: index,
+                name: `第${index}集`,
+                air_date: "",
+                overview: "暂无分集剧情",
+                still_path: ""
+              });
+            }
+          }
+        }
+        renderEpisodes(episodes);
+      } catch (e) {
+        $("episodeRail").replaceChildren(emptyNode("分集加载失败"));
+      }
       updatePostPanFocusState();
     }
 
@@ -8978,12 +9119,78 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
     }
 
     async function loadPersonWorks(person) {
-      // 豆瓣暂无人物详情接口，这里显示为空
+      $("personWorkTitle").textContent = "简介";
+      $("personWorkBlock").style.display = "";
+      renderPersonInfo(person, null);
+      $("personWorkRail").replaceChildren(emptyNode("加载中..."));
       try {
-        $("personWorkTitle").textContent = "简介";
-        $("personWorkBlock").style.display = "";
-        renderPersonInfo(person, null);
-        $("personWorkRail").replaceChildren(emptyNode("暂无人物数据"));
+        const personId = person && (person.id || person.celebrity_id || person.douban_id || "") ? String(person.id || person.celebrity_id || person.douban_id || "").trim() : "";
+        let personDetail = null;
+        if (personId) {
+          try {
+            const url = doubanPersonDetailUrl(personId);
+            personDetail = url ? await requestJson(url, 18) : null;
+          } catch (e) {
+            personDetail = null;
+          }
+        }
+        const biography = personDetail && (personDetail.biography || personDetail.intro || personDetail.summary) || "";
+        const name = (personDetail && (personDetail.name || personDetail.title)) || person.name || "";
+        const avatar = (personDetail && (personDetail.cover || personDetail.avatar || personDetail.poster)) || person.profile_path || "";
+        const info = {
+          biography: biography || `暂无更多资料。${name ? name : ""}`,
+          name,
+          profile_path: avatar
+        };
+        renderPersonInfo(person, info);
+        const works = [];
+        if (personDetail && Array.isArray(personDetail.works)) {
+          personDetail.works.slice(0, 18).forEach((work) => {
+            const workTitle = work.title || work.name || "";
+            const workPic = work.cover || work.poster || work.pic || "";
+            if (!workTitle) return;
+            works.push({
+              id: work.id || "",
+              title: workTitle,
+              pic: workPic,
+              image: workPic,
+              mediaType: (work.type === "tv" || work.subtype === "tv") ? "tv" : "movie",
+              doubanId: String(work.id || ""),
+              source: "douban"
+            });
+          });
+        } else if (state.catalog && Object.keys(state.catalog).length) {
+          const allWorks = [];
+          Object.values(state.catalog).forEach((list) => {
+            if (list && Array.isArray(list)) {
+              list.forEach((it) => allWorks.push(it));
+            }
+          });
+          allWorks.slice(0, 18).forEach((it) => {
+            if (it && it.id) works.push(it);
+          });
+        }
+        if (works.length) {
+          fillRail($("personWorkRail"), works.map((it, index) => ({
+            id: it.id || `person-work-${index}`,
+            title: it.title || "",
+            pic: it.pic || it.image || "",
+            image: it.image || it.pic || "",
+            mediaType: it.mediaType || "movie",
+            doubanId: it.doubanId || "",
+            listId: "person",
+            listTitle: "关联作品",
+            source: "douban",
+            popularity: 100 - index,
+            voteAverage: 0,
+            baseRank: index + 1,
+            releaseDate: "",
+            remark: "",
+            desc: it.title || ""
+          })));
+        } else {
+          $("personWorkRail").replaceChildren(emptyNode("暂无关联作品"));
+        }
         updatePostPanFocusState();
       } catch (e) {
         renderPersonInfo(person, null);
