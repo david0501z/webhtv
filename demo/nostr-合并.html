@@ -6051,14 +6051,18 @@
 
     function imageUrl(path, backdrop) {
       if (!path) return "";
-      return window.WEBHOME_CONFIG.douban.imageBase + path;
+      const value = String(path || "").trim();
+      if (/^https?:\/\//i.test(value)) return value;
+      if (value.startsWith("//")) return "https:" + value;
+      return window.WEBHOME_CONFIG.douban.imageBase + (value.startsWith("/") ? value.substring(1) : value);
     }
 
     function doubanImageUrl(path, size) {
       if (!path) return "";
       const value = String(path || "").trim();
-      if (value.startsWith("http")) return value;
-      return window.WEBHOME_CONFIG.douban.imageBase + value;
+      if (/^https?:\/\//i.test(value)) return value;
+      if (value.startsWith("//")) return "https:" + value;
+      return window.WEBHOME_CONFIG.douban.imageBase + (value.startsWith("/") ? value.substring(1) : value);
     }
 
     function doubanImagePath(url) {
@@ -6067,8 +6071,7 @@
       if (value.startsWith("/")) return value;
       try {
         const parsed = new URL(value);
-        if (parsed.hostname.includes("douban.com")) return parsed.pathname || "";
-        if (parsed.hostname.includes("img9.douban.com")) return parsed.pathname || "";
+        if (parsed.hostname.includes("douban")) return parsed.pathname || "";
       } catch (e) {}
       return "";
     }
@@ -6920,7 +6923,7 @@
 
     function renderChips() {
       const chips = [{ id: "live", title: "直播" }, { id: "all", title: "Nostr推荐" }, { id: "recent", title: "最近" }]
-        .concat(visibleTmdbLists().map((item) => ({ id: item.id, title: item.title })));
+        .concat(visibleDoubanLists().map((item) => ({ id: item.id, title: item.title })));
       const root = $("chips");
       const keys = chips.map((chip) => chip.id + ":" + chip.title).join("\n");
       if (root.dataset.renderKeys !== keys) {
@@ -7002,7 +7005,7 @@
         renderLiveEntry();
         return;
       }
-      const lists = visibleTmdbLists().filter((list) => list.id === state.activeList);
+      const lists = visibleDoubanLists().filter((list) => list.id === state.activeList);
       if (!lists.length) {
         activateListPanel("");
         return;
@@ -7652,7 +7655,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
       if (!value) return;
       $("searchInput").value = value;
       hideSearchSuggest();
-      searchTmdb(value);
+      searchDouban(value);
     }
 
     function enableSearchEditing() {
@@ -7667,7 +7670,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
       const input = $("searchInput");
       if (!input) return;
       enableSearchEditing();
-      searchTmdb(input.value);
+      searchDouban(input.value);
     }
 
     function currentSearchKeyword() {
@@ -9204,17 +9207,37 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
       const rail = $("recommendWorkRail");
       if (!block || !rail || !item || !item.doubanId || !item.mediaType) return;
       try {
-        // 豆瓣暂无推荐接口，这里使用相同列表的其他条目作为推荐
-        const list = getList(item.listId);
         const works = [];
-        if (list) {
-          const catalog = state.catalog[list.id];
-          if (catalog && catalog.items) {
-            const otherItems = catalog.items.filter((i) => i.id !== item.id).slice(0, 18);
-            otherItems.forEach((value, index) => {
-              works.push(normalizeDouban({ title: value.title, cover: value.pic, rate: value.remark, id: value.id }, { id: "recommend", title: "相关推荐", type: value.mediaType }, index));
+        if (state.catalog && Object.keys(state.catalog).length) {
+          const allItems = [];
+          Object.values(state.catalog).forEach((list) => {
+            if (Array.isArray(list)) {
+              list.forEach((it) => allItems.push(it));
+            }
+          });
+          allItems
+            .filter((i) => i && i.id !== item.id && hasPoster(i))
+            .slice(0, 18)
+            .forEach((value, index) => {
+              works.push({
+                id: value.id || `recommend-${index}`,
+                title: value.title || "",
+                pic: value.pic || value.image || "",
+                image: value.image || value.pic || "",
+                landscape: value.landscape || value.pic || "",
+                mediaType: value.mediaType || "movie",
+                doubanId: value.doubanId || "",
+                listId: "recommend",
+                listTitle: "相关推荐",
+                source: "douban",
+                popularity: 100 - index,
+                voteAverage: parseFloat(value.voteAverage || 0) || 0,
+                baseRank: index + 1,
+                releaseDate: value.releaseDate || "",
+                remark: value.remark || "",
+                desc: value.title || ""
+              });
             });
-          }
         }
         if (!works.length) {
           block.style.display = "none";
@@ -12851,7 +12874,7 @@ nsec: ${state.identity.nsec}` : "身份未就绪";
       syncClientModeClasses();
       Promise.all([
         initUiPrefs({ timeout: 0 }),
-        initTmdbConfig({ preserveDirty: true, timeout: 0 }),
+        initDoubanConfig({ preserveDirty: true, timeout: 0 }),
         initPanConfig({ preserveDirty: true, timeout: 0 })
       ])
         .then(loadInfo)
