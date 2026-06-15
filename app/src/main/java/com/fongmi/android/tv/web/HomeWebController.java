@@ -68,6 +68,7 @@ public class HomeWebController {
     private String documentStartKey;
     private String defaultUserAgent;
     private String homePage;
+    private WebHomeRawAdapter rawAdapter;
     private WebHomeViewport viewport = WebHomeViewport.EMPTY;
     private String lastViewportKey;
     private long pauseAt;
@@ -127,6 +128,7 @@ public class HomeWebController {
         String url = getHomePage(site);
         boolean reload = force || !url.equals(homePage);
         this.site = site;
+        rawAdapter = WebHomeRawAdapter.create(url, site.getHeader());
         prepareExtensions(site);
         registerDocumentStartScripts();
         if (reload) {
@@ -382,6 +384,7 @@ public class HomeWebController {
 
     public void destroy() {
         removeDocumentStartScripts();
+        rawAdapter = null;
         webView.stopLoading();
         webView.destroy();
         if (debugTools) WebView.setWebContentsDebuggingEnabled(false);
@@ -529,6 +532,7 @@ public class HomeWebController {
                 listener.onWebConsole("ERROR " + error.getErrorCode() + " " + error.getDescription() + " " + request.getUrl());
                 if (request.isForMainFrame()) {
                     homePage = null;
+                    rawAdapter = null;
                     Notify.show(error.getDescription().toString());
                     listener.onWebError();
                 }
@@ -542,7 +546,8 @@ public class HomeWebController {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 listener.onWebRequest(request.getMethod(), request.getUrl().toString(), request.isForMainFrame(), request.getRequestHeaders());
-                return super.shouldInterceptRequest(view, request);
+                WebResourceResponse raw = rawAdapter == null ? null : rawAdapter.intercept(request);
+                return raw == null ? super.shouldInterceptRequest(view, request) : raw;
             }
 
             @Override
@@ -731,6 +736,7 @@ public class HomeWebController {
                     playUrl:(url,title,options)=>invoke('player.playUrl',Object.assign({},options||{},{url,title})),
                     playVod:(siteKey,vodId,title,pic,options)=>invoke('player.playVod',Object.assign({},options||{},{siteKey,vodId,title,pic})),
                     playVodInline:(payload)=>invoke('player.playVodInline',payload||{}),
+                    preloadArtwork:(pic,wallPic)=>invoke('player.preloadArtwork',{pic,wallPic}),
                     control:(action)=>invoke('player.control',{action}),
                     status:()=>invoke('player.status',{})
                   };
@@ -784,6 +790,7 @@ public class HomeWebController {
                     play:player.playUrl,
                     vod:player.playVod,
                     vodInline:player.playVodInline,
+                    preloadArtwork:player.preloadArtwork,
                     ctrl:player.control,
                     stat:player.status,
                     search:window.fongmi.app.search,
