@@ -172,6 +172,22 @@ public class Setting {
         Prefers.put("web_home_extension", extension);
     }
 
+    public static boolean isPlaybackArtworkWall() {
+        return Prefers.getBoolean("playback_artwork_wall", true);
+    }
+
+    public static void putPlaybackArtworkWall(boolean artworkWall) {
+        Prefers.put("playback_artwork_wall", artworkWall);
+    }
+
+    public static boolean isCspWarmup() {
+        return Prefers.getBoolean("csp_warmup");
+    }
+
+    public static void putCspWarmup(boolean warmup) {
+        Prefers.put("csp_warmup", warmup);
+    }
+
     public static boolean isDebugLog() {
         return DebugLogStore.isEnabled();
     }

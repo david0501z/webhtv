@@ -2,12 +2,14 @@ package com.fongmi.android.tv.ui.activity;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.View;
 
 import androidx.viewbinding.ViewBinding;
 
 import com.fongmi.android.tv.R;
+import com.fongmi.android.tv.gitcloud.GitCloudAccountStore;
 import com.fongmi.android.tv.playback.ViewingRecordSyncStore;
 import com.fongmi.android.tv.setting.Setting;
 import com.fongmi.android.tv.databinding.ActivitySettingEnhanceBinding;
@@ -17,6 +19,7 @@ import com.fongmi.android.tv.setting.SiteHealthStore;
 import com.fongmi.android.tv.ui.base.BaseActivity;
 import com.fongmi.android.tv.ui.dialog.CustomCspDialog;
 import com.fongmi.android.tv.ui.dialog.DebugLogDialog;
+import com.fongmi.android.tv.ui.dialog.GitCloudDialog;
 import com.fongmi.android.tv.ui.dialog.LoginStateLearnDialog;
 import com.fongmi.android.tv.ui.dialog.ManagePageDialog;
 import com.fongmi.android.tv.ui.dialog.OneKeySyncDialog;
@@ -30,6 +33,9 @@ import com.fongmi.android.tv.utils.PermissionUtil;
 import com.fongmi.android.tv.web.ext.WebHomeExtensionRegistry;
 
 public class SettingEnhanceActivity extends BaseActivity {
+
+    private static final String URL_GITHUB = "https://github.com/fish2018/webhtv";
+    private static final String URL_CNB = "https://cnb.cool/fish2018/ext";
 
     private ActivitySettingEnhanceBinding mBinding;
 
@@ -54,14 +60,19 @@ public class SettingEnhanceActivity extends BaseActivity {
 
     @Override
     protected void initEvent() {
+        mBinding.githubRepo.setOnClickListener(view -> openRepo(URL_GITHUB));
+        mBinding.cnbRepo.setOnClickListener(view -> openRepo(URL_CNB));
         mBinding.driveCheck.setOnClickListener(this::setDriveCheck);
         mBinding.debugLog.setOnClickListener(this::setDebugLog);
         mBinding.siteHealthSort.setOnClickListener(view -> SiteHealthDialog.show(this, this::setText));
         mBinding.siteHealthSort.setOnLongClickListener(this::clearSiteHealth);
         mBinding.webHomeExtension.setOnClickListener(view -> WebHomeExtensionDialog.show(this, this::setText));
         mBinding.webHomeExtension.setOnLongClickListener(this::clearWebHomeExtension);
+        mBinding.cspWarmup.setOnClickListener(this::setCspWarmup);
+        mBinding.playbackArtworkWall.setOnClickListener(this::setPlaybackArtworkWall);
         mBinding.playbackWebhook.setOnClickListener(view -> ViewingRecordSyncDialog.show(this, this::setText));
         mBinding.managePage.setOnClickListener(view -> ManagePageDialog.show(this));
+        mBinding.gitCloud.setOnClickListener(view -> GitCloudDialog.show(this, this::setText));
         mBinding.shellProxy.setOnClickListener(view -> ShellProxyDialog.show(this, this::setText));
         mBinding.shellProxy.setOnLongClickListener(v -> false);
         mBinding.shellProxyConfig.setVisibility(View.GONE);
@@ -79,8 +90,11 @@ public class SettingEnhanceActivity extends BaseActivity {
         mBinding.siteHealthSortText.setText(getSwitch(Setting.isSiteHealthSort()));
         WebHomeExtensionRegistry.Snapshot webHomeExtension = WebHomeExtensionRegistry.get().snapshot();
         mBinding.webHomeExtensionText.setText(getSwitch(Setting.isWebHomeExtension()) + " · " + webHomeExtension.readyCount + "/" + webHomeExtension.installedCount);
+        mBinding.cspWarmupText.setText(getSwitch(Setting.isCspWarmup()));
+        mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
         mBinding.playbackWebhookText.setText(ViewingRecordSyncStore.summary(this));
         mBinding.managePageText.setText(R.string.manage_page_web);
+        mBinding.gitCloudText.setText(getString(R.string.git_cloud_account_count, GitCloudAccountStore.list().size()));
         mBinding.shellProxyText.setText(getSwitch(Setting.isShellProxy()) + " · " + getString(R.string.setting_proxy_rule_count, ProxySetting.count()));
         mBinding.shellProxyConfigText.setText(getString(R.string.setting_proxy_rule_count, ProxySetting.count()));
         CustomCspSetting.Registry registry = CustomCspSetting.load();
@@ -103,6 +117,16 @@ public class SettingEnhanceActivity extends BaseActivity {
         DebugLogDialog.show(this);
     }
 
+    private void setPlaybackArtworkWall(View view) {
+        Setting.putPlaybackArtworkWall(!Setting.isPlaybackArtworkWall());
+        mBinding.playbackArtworkWallText.setText(getSwitch(Setting.isPlaybackArtworkWall()));
+    }
+
+    private void setCspWarmup(View view) {
+        Setting.putCspWarmup(!Setting.isCspWarmup());
+        mBinding.cspWarmupText.setText(getSwitch(Setting.isCspWarmup()));
+    }
+
     private boolean clearSiteHealth(View view) {
         SiteHealthStore.clear();
         Notify.show(R.string.site_health_clear_done);
@@ -113,6 +137,14 @@ public class SettingEnhanceActivity extends BaseActivity {
         WebHomeExtensionRegistry.get().clear();
         Notify.show(R.string.web_home_extension_clear_done);
         return true;
+    }
+
+    private void openRepo(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception e) {
+            Notify.show(R.string.manage_page_no_browser);
+        }
     }
 
     @Override

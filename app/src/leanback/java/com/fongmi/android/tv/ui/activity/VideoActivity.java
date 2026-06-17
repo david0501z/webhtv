@@ -157,6 +157,10 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         start(activity, key, id, name, pic, null, true, false);
     }
 
+    public static void collect(Activity activity, String key, String id, String name, String pic, String wallPic) {
+        start(activity, key, id, name, pic, null, true, false, wallPic);
+    }
+
     public static void start(Activity activity, String url) {
         start(activity, SiteApi.PUSH, url, url);
     }
@@ -185,7 +189,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         long launch = System.currentTimeMillis();
         SpiderDebug.log("video-flow", "launch request key=%s id=%s name=%s collect=%s cast=%s", key, id, name, collect, cast);
         ImgUtil.preload(activity, pic);
-        if (!TextUtils.isEmpty(wallPic) && !TextUtils.equals(wallPic, pic)) ImgUtil.preload(activity, wallPic);
+        if (Setting.isPlaybackArtworkWall() && !TextUtils.isEmpty(wallPic) && !TextUtils.equals(wallPic, pic)) ImgUtil.preload(activity, wallPic);
         Intent intent = new Intent(activity, VideoActivity.class);
         intent.putExtra("launchTime", launch);
         intent.putExtra("collect", collect);
@@ -490,7 +494,6 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         getIntent().putExtra("key", item.getSiteKey());
         getIntent().putExtra("pic", item.getPic());
         getIntent().putExtra("id", item.getId());
-        getIntent().removeExtra("wallPic");
         mBinding.scroll.scrollTo(0, 0);
         mClock.setCallback(null);
         updateNavigationKey();
@@ -1147,7 +1150,7 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     private void setArtwork(String url) {
         if (mHistory != null) mHistory.setVodPic(url);
         loadArtwork(url);
-        setContextWall(getContextWall(url));
+        setContextWall(getContextWall());
     }
 
     private void setArtwork() {
@@ -1169,10 +1172,8 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
         });
     }
 
-    private String getContextWall(String fallback) {
-        String wall = getWallPic();
-        if (!TextUtils.isEmpty(wall)) return wall;
-        return Objects.toString(fallback, "");
+    private String getContextWall() {
+        return getWallPic();
     }
 
     private String lockContextWall(String url) {
@@ -1182,6 +1183,11 @@ public class VideoActivity extends PlaybackActivity implements CustomKeyDownVod.
     }
 
     private void setContextWall(String url) {
+        if (!Setting.isPlaybackArtworkWall()) {
+            mContextWallUrl = "";
+            hideContextWall();
+            return;
+        }
         String wall = lockContextWall(url);
         if (TextUtils.isEmpty(wall)) {
             mContextWallUrl = "";

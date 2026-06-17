@@ -10,9 +10,9 @@ WebHomeTV 是基于 FongMi / CatVod 生态二次开发的 Android 影音应用,�
 - **站点健康排序**:自动学习站点搜索、详情和播放成功率,搜索与换源优先使用更可用的站点;站点弹窗默认保留用户配置顺序,可在弹窗内单独开启健康排序。
 - **管理页面**:在 App 内启动局域网浏览器管理页 `/m`,可管理本机或远端设备文件、登录态、同步目录、站点注入、接口、壳代理、搜索和推送,运行期间通过前台服务保活。
 - **一键同步**:在同一局域网设备间同步配置、站源数据(Jar/脚本保存数据)、登录态、WebHome 数据、搜索记录、观看历史、收藏和应用设置,每项可单独勾选。
-- **站点注入**:添加自定义 WebHome 或通用 CSP 站点,主列表显示核心摘要和快捷操作,新增/修改在独立表单中维护启用状态、插入位置、首页、搜索和换源行为。
-- **WebHome 扩展**:给真实网页注入用户脚本,主列表显示扩展摘要和状态,新增/修改在独立表单中配置本地文件、远程链接/manifest、直接代码、表单生成或 JSON;提供调试工作台用于 Web 预览、Console/Network/Elements 和代码保存预览。
-- **观影记录同步**:增强功能中提供独立总览页,包含总开关、本机 API 修改开关、远端同步源和 Webhook 上报。爬虫可通过 `/api/playback/current` 读取当前播放记录,也可在用户开启修改后调用 `/api/playback/progress`、`/api/playback/progress/batch` 或 `/api/playback/progress/delete` 写入/清理本地进度;App 也可从用户配置的远端 API 拉取批量记录合并到本地历史。完整协议见 `docs/应用完整开发文档.md` 的“观影记录同步”章节。
+- **站点注入**:添加自定义 WebHome 或通用 CSP 站点,主列表显示核心摘要和快捷操作,新增/修改在独立表单中维护启用状态、插入位置、首页、搜索和换源行为;顶部“识别”可粘贴单个或多个松散站点 JSON 片段并自动归类追加;WebHome 站点级扩展可直接填写扩展 URL / JSON,也可选择本地 JS/CSS/JSON 自动生成配置。
+- **WebHome 扩展**:给真实网页注入用户脚本,主列表显示扩展摘要和状态,新增/修改在独立表单中配置本地文件、远程链接/manifest、直接代码、表单生成或 JSON;匹配范围默认从当前点播配置的 WebHome 站点弹窗多选,也可切换到 CSP key 正则;提供调试工作台用于 Web 预览、Console/Network/Elements 和代码保存预览。
+- **观影记录同步**:增强功能中提供独立总览页,包含总开关、本机 API 修改开关、远端同步源和 Webhook 上报。爬虫可通过 `/api/playback/current` 读取当前播放记录,也可在用户开启修改后调用 `/api/playback/progress`、`/api/playback/progress/batch` 或 `/api/playback/progress/delete` 写入/清理本地进度;App 也可从用户配置的远端 API 拉取批量记录合并到本地历史。完整协议见 `webhome-devkit/docs/应用完整开发文档.md` 的“观影记录同步”章节。
 - **登录态学习**:用户手动开启后学习 Cookie、Token、接口 Jar 网盘登录文件等登录态路径,待确认项可在管理页查看/编辑,并可参与一键同步。
 - **APP 代理**:配置代理地址和域名匹配规则,可按当前站点自动建议代理域名,用于改善特定站点、接口或播放链路的网络访问。
 - **调试日志**:本机和局域网日志查看入口,便于排查播放、代理、站源和 WebHome 相关问题。
@@ -37,7 +37,7 @@ https://github.com/user-attachments/assets/7249b787-a720-406c-8365-acaa0995cb6a
 
 ## 文档
 
-完整开发说明见 [**应用完整开发文档.md**](docs/应用完整开发文档.md),包含:
+完整开发说明见 [**应用完整开发文档.md**](webhome-devkit/docs/应用完整开发文档.md),包含:
 
 - App 配置字段(点播、解析、直播、样式)
 - Spider 开发,JS/Python Spider 运行时
@@ -54,9 +54,14 @@ https://github.com/user-attachments/assets/7249b787-a720-406c-8365-acaa0995cb6a
 - Android Intent、DLNA、MediaSession
 - CORS、Cookie 和网络策略
 
-WebHome 扩展的示例和模板见 [docs/webhome-extension/](docs/webhome-extension/) 或 [CNB仓库](https://cnb.cool/fish2018/ext) 。
+WebHome 主页、扩展、模板、示例和 AI skills 统一放在 [webhome-devkit/](webhome-devkit/) （附 [独立CNB仓库](https://cnb.cool/fish2018/ext)）：
 
-AI 编程客户端如何接入和复用 Skills,见 [docs/skills/](docs/skills/) 。
+- 扩展脚本开发指南见 [webhome-devkit/README.md](webhome-devkit/README.md)。
+- 扩展示例见 [webhome-devkit/examples/extensions/](webhome-devkit/examples/extensions/)。
+- 主页示例见 [webhome-devkit/examples/homepages/](webhome-devkit/examples/homepages/)。
+- 模板见 [webhome-devkit/templates/](webhome-devkit/templates/)。
+- AI 编程客户端如何接入和复用 Skills,见 [webhome-devkit/skills/](webhome-devkit/skills/)。
+
 
 ## 二开重点
 
@@ -90,7 +95,7 @@ WebHome 页面会注入 `window.fongmi` 和简写 `window.fm`,网页可以直接
 | `fm.vod(siteKey, vodId, title, pic, options)` | 打开 App 原生 CSP 详情/播放链路,`options.wallPic` 可指定播放页背景图 |
 | `fm.vodInline(payload)` | 从 WebHome 传入临时 VOD,支持多集直链或按集即时解析,打开 App 原生播放页 |
 | `fm.preloadArtwork(pic, wallPic)` | 后台预热播放页海报和背景图,不阻塞后续播放跳转 |
-| `fm.search(keyword, { direct })` | 调用 App 搜索,支持直接进入搜索结果 |
+| `fm.search(keyword, { direct, pic, wallPic })` | 调用 App 搜索,支持直接进入搜索结果,可把详情页图片带入后续播放 |
 | `fm.openLive()` / `fm.openKeep()` / `fm.openSetting()` | 打开 App 原生直播、收藏和设置入口 |
 | `fm.history()` | 读取最近观看记录 |
 | `fm.stat()` | 获取当前播放状态、进度、时长等信息 |
@@ -105,7 +110,7 @@ WebHome 页面会注入 `window.fongmi` 和简写 `window.fm`,网页可以直接
 | `fm.ui.setToolbar(visible)` | 控制 App 工具栏显示 |
 | `fm.back()` / `fm.reload()` | 处理网页返回和刷新 |
 
-播放页图片语义:`pic` 是海报/播放器默认图,`wallPic` 是播放页背景图。App 不会自动判断横竖屏,WebHome 应把竖版海报放在 `pic`,把横屏剧照/背景图放在 `wallPic`;播放背景优先级为 `wallPic -> pic -> App 默认背景`。`fm.play`、`fm.vod`、`fm.vodInline`、`fm.pan.play` 共用这套语义。详情页拿到图片后可先调用 `fm.preloadArtwork(pic, wallPic)` 预热原生 Glide 缓存,点击继续观看或播放时仍应直接调用 `fm.vod`/`fm.play`/`fm.vodInline`/`fm.pan.play`,不要在点击后等待预热。
+播放页图片语义:`pic` 是海报/播放器默认图,`wallPic` 是播放页背景图。App 不会自动判断横竖屏,WebHome 应把竖版海报放在 `pic`,把横屏剧照/背景图放在 `wallPic`;播放背景只使用 `wallPic`,没有 `wallPic` 时显示 App 默认背景/壁纸,不会再用 `pic` 兜底。`fm.play`、`fm.vod`、`fm.vodInline`、`fm.pan.play` 共用这套语义;`fm.search(keyword, { direct: true, pic, wallPic })` 可把详情页图片带到原生搜索结果后续播放链路。详情页拿到图片后可先调用 `fm.preloadArtwork(pic, wallPic)` 预热原生 Glide 缓存,点击继续观看、搜索播放或播放时仍应直接调用对应入口,不要在点击后等待预热。
 
 SDK 相关事件:
 
@@ -181,7 +186,7 @@ Content-Type: application/json
 
 ### 7. PanSou 网盘搜索集成示例
 
-`demo/nostr.html` 的详情页集成了 PanSou 类搜索能力,支持:
+`webhome-devkit/examples/homepages/nostr.html` 的详情页集成了 PanSou 类搜索能力,支持:
 
 - 自定义盘搜服务地址、账号密码认证、自定义 TG 频道。
 - 按网盘类型分 Tab 展示,对支持的类型调用 App 内置检测,只检测可见范围内的结果,检测结果用状态圆点表达。
@@ -191,14 +196,14 @@ PanSou 搜索结果可能是异步补充的,示例页会轮询合并新增结果
 
 ### 8. Nostr + TMDB 推荐首页示例
 
-`demo/nostr.html` 是一个完整的 WebHome 首页示例,不只是 SDK demo。它包含:
+`webhome-devkit/examples/homepages/nostr.html` 是一个完整的 WebHome 首页示例,不只是 SDK demo。它包含:
 
 - TMDB 今日趋势、电影、剧集、动画等榜单,中国大陆内容优先的推荐分区。
 - 瀑布流卡片布局,移动端一行 3 个,宽屏自动显示更多列。
 - Nostr 去中心化偏好同步;用户搜索、点击、播放时长等行为参与推荐计算,同一用户对同一条目的热度去重。
 - 状态面板展示 SDK、TMDB、Nostr、PanSou、发布状态和身份信息。
 - 支持清理本机测试数据和发布 Nostr 删除事件。
-- 详情页优先使用 TMDB 横屏剧照作为播放页 `wallPic`,没有横屏图时只传海报 `pic`;进入详情后会后台预热原生播放页图片,不阻塞"继续观看"跳转。
+- 详情页优先使用 TMDB 横屏剧照作为播放页 `wallPic`,状态面板可开启高清剧照以向播放页传 TMDB `original` 图;没有横屏图时只传海报 `pic`,播放页不显示背景图而使用 App 默认背景/壁纸。进入详情后会后台预热原生播放页图片,不阻塞"继续观看"或"搜索播放"跳转。
 
 示例页使用 TMDB API,请自行替换或管理 API Key,并遵守对应服务条款。
 
@@ -208,11 +213,16 @@ PanSou 搜索结果可能是异步补充的,示例页会轮询合并新增结果
 - 手机端和电视端都保留原有 FongMi/CatVod 能力。
 - WebHome 能力优先面向手机端体验,同时兼顾电视遥控器焦点和返回操作。
 
-## Demo
+## WebHome Devkit
 
 | 文件 | 说明 |
 | --- | --- |
-| `demo/nostr.html` | 正式推荐首页示例,集成 TMDB、Nostr、PanSou、网盘检测、透明背景 |
+| `webhome-devkit/docs/应用完整开发文档.md` | App、配置、WebHome SDK、扩展、网盘、管理页和调试能力的完整开发文档 |
+| `webhome-devkit/README.md` | WebHome 扩展脚本开发指南 |
+| `webhome-devkit/examples/homepages/nostr.html` | 正式推荐首页示例,集成 TMDB、Nostr、PanSou、网盘检测、透明背景 |
+| `webhome-devkit/examples/extensions/` | 站点扩展示例 |
+| `webhome-devkit/templates/` | WebHome 首页和扩展起步模板 |
+| `webhome-devkit/skills/` | AI 编程客户端可安装的 WebHome skills |
 
 配置示例:
 
@@ -303,8 +313,7 @@ app/          Android 主应用(mobile/leanback 双 flavor)
 catvod/       CatVod 抽象层、Spider 接口、网络和代理工具
 quickjs/      JavaScript Spider 运行时
 chaquo/       Python Spider 运行时
-demo/         WebHome 示例页面
-docs/         完整开发文档和 WebHome 扩展示例
+webhome-devkit/ WebHome 开发套件(文档、主页/扩展示例、模板、AI skills)
 scripts/      Media3 本地依赖构建脚本
 third_party/  Media3 本地 Maven 产物和版本锁定文件
 Release/      release 构建的 APK 输出
