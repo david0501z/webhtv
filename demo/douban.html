@@ -4179,11 +4179,6 @@
           <div class="pan-disk-grid" id="panDiskGrid"></div>
           <button class="btn focusable" id="savePanConfigBtn" type="button">保存配置</button>
         </div>
-        <div class="actions" style="display:none" >
-          <button class="btn focusable" id="refreshNostrBtn" type="button">刷新榜单</button>
-          <button class="btn focusable" id="syncBtn" type="button">同步身份</button>
-          <button class="btn danger focusable" id="deleteDataBtn" type="button">删除数据</button>
-        </div>
       </div>
       <div class="suggest-panel" id="suggestPanel" role="listbox"></div>
     </form>
@@ -4283,25 +4278,7 @@
     </div>
   </section>
 
-  <section class="sheet" id="syncSheet" aria-hidden="true">
-    <button class="btn focusable" id="closeSyncBtn" type="button">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-      返回
-    </button>
-    <div class="sync-panel" style="margin-top:14px">
-      <h3 style="margin:0">Nostr 同步身份</h3>
-      <p class="hint">页面会自动生成本机身份并把有效观看偏好签名发布。手机和电脑如果想同步同一个用户的推荐，请导入同一个 nsec。只看全网热度时不需要导入。</p>
-      <div>
-        <label class="hint" for="nsecInput">nsec 私钥</label>
-        <textarea class="field focusable mono" id="nsecInput" placeholder="nsec1..."></textarea>
-      </div>
-      <div class="actions">
-        <button class="btn primary focusable" id="saveNsecBtn" type="button">导入身份</button>
-        <button class="btn focusable" id="newNsecBtn" type="button">生成新身份</button>
-      </div>
-      <p class="hint mono" id="identityText">身份未就绪</p>
-    </div>
-  </section>
+
 
   <section class="image-viewer" id="imageViewer" aria-hidden="true">
     <button class="mobile-detail-back focusable" id="mobileImageBackBtn" type="button" aria-label="返回">
@@ -4322,7 +4299,6 @@
     <svg class="icon" viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
   </button>
 
-  <script src="https://cdn.jsdelivr.net/npm/nostr-tools@2.10.4/lib/nostr.bundle.js"></script>
   <script>
     window.WEBHOME_CONFIG = {
       siteKey: "",
@@ -4382,12 +4358,6 @@
             }
           }
         ]
-      },
-      nostr: {
-        kind: 30078,
-        tag: "fish2018-home-v1",
-        eventsKey: "fish2018_home_v1_events",
-        nsecKey: "fish2018_home_v1_nsec"
       },
       pan: {
         apiBase: "https://so.252035.xyz",
