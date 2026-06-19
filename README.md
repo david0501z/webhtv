@@ -1,6 +1,6 @@
 # WebHomeTV
 
-WebHomeTV 是基于 FongMi / CatVod 生态二次开发的 Android 影音应用,保留原有点播、直播、Spider、解析、投屏、本地 HTTP 服务等能力,并重点增强了 **WebHome 自定义首页**、**App Native SDK**、**管理页面**、**WebHome 扩展**、**登录态学习/同步**、**网盘链接检测**、**站点健康排序**、**观影记录同步** 和 **Nostr/TMDB 推荐首页**。
+WebHomeTV 是基于 FongMi / CatVod 生态二次开发的 Android 影音应用,保留原有点播、直播、Spider、解析、投屏、本地 HTTP 服务等能力,并重点增强了 **WebHome 自定义首页**、**App Native SDK**、**管理页面**、**远程托管**、**WebHome 扩展**、**登录态学习/同步**、**网盘链接检测**、**站点健康排序**、**观影记录同步** 和 **Nostr/TMDB 推荐首页**。
 
 项目的核心目标不是替换 CSP/Spider 体系,而是让 CSP 站点首页变成一个真正可开发的网页应用:开发者用 HTML/CSS/JavaScript 定制首页,再通过 App 暴露的 Native 能力完成搜索、播放、跨域请求、资源代理、最近观看、网盘检测和状态同步。
 
@@ -9,6 +9,7 @@ WebHomeTV 是基于 FongMi / CatVod 生态二次开发的 Android 影音应用,�
 - **网盘检测**:内置网盘分享链接有效性检测,WebHome 和本地 HTTP API 均可调用。
 - **站点健康排序**:自动学习站点搜索、详情和播放成功率,搜索与换源优先使用更可用的站点;站点弹窗默认保留用户配置顺序,可在弹窗内单独开启健康排序。
 - **管理页面**:在 App 内启动局域网浏览器管理页 `/m`,可管理本机或远端设备文件、登录态、同步目录、站点注入、接口、壳代理、搜索和推送,运行期间通过前台服务保活。
+- **远程托管**:通过自建 Cloudflare/Deno/Vercel/Go/Rust 中转服务绑定多台 WebHTV 设备,支持设备状态、远程搜索/推送、接口配置、主页设置、一键同步和最近日志;Go/Rust 版支持 WebSocket 实时通道,不支持时自动回退 HTTP 轮询。部署说明和二进制见 [远程托管中转服务器文档及二进制](serverless)。
 - **一键同步**:在同一局域网设备间同步配置、站源数据(Jar/脚本保存数据)、登录态、WebHome 数据、搜索记录、观看历史、收藏和应用设置,每项可单独勾选。
 - **站点注入**:添加自定义 WebHome 或通用 CSP 站点,主列表显示核心摘要和快捷操作,新增/修改在独立表单中维护启用状态、插入位置、首页、搜索和换源行为;顶部“识别”可粘贴单个或多个松散站点 JSON 片段并自动归类追加;WebHome 站点级扩展可直接填写扩展 URL / JSON,也可选择本地 JS/CSS/JSON 自动生成配置。
 - **WebHome 扩展**:给真实网页注入用户脚本,主列表显示扩展摘要和状态,新增/修改在独立表单中配置本地文件、远程链接/manifest、直接代码、表单生成或 JSON;匹配范围默认从当前点播配置的 WebHome 站点弹窗多选,也可切换到 CSP key 正则;提供调试工作台用于 Web 预览、Console/Network/Elements 和代码保存预览。
@@ -35,6 +36,10 @@ https://github.com/user-attachments/assets/7249b787-a720-406c-8365-acaa0995cb6a
 }
 ```
 
+## 社区分享
+
+- [网友自制分享](https://github.com/fish2018/webhtv/issues/13)
+
 ## 文档
 
 完整开发说明见 [**应用完整开发文档.md**](webhome-devkit/docs/应用完整开发文档.md),包含:
@@ -47,6 +52,7 @@ https://github.com/user-attachments/assets/7249b787-a720-406c-8365-acaa0995cb6a
 - 网盘检测 API 和站点健康排序
 - 观影记录同步、Webhook 上报和爬虫 HTTP API
 - 管理页面和局域网 HTTP 能力
+- 远程托管部署、绑定流程和能力边界
 - WebHome 扩展脚本开发
 - 登录态学习与同步
 - PanSou 集成、Nostr 首页实现要点
@@ -223,6 +229,7 @@ PanSou 搜索结果可能是异步补充的,示例页会轮询合并新增结果
 | `webhome-devkit/examples/extensions/` | 站点扩展示例 |
 | `webhome-devkit/templates/` | WebHome 首页和扩展起步模板 |
 | `webhome-devkit/skills/` | AI 编程客户端可安装的 WebHome skills |
+| [`serverless/`](serverless/) | 远程托管中转服务器部署文档、Cloudflare/Deno/Vercel 示例和 Go/Rust 二进制 |
 
 配置示例:
 
