@@ -5967,17 +5967,67 @@
       return !!tmdbImagePath(url);
     }
 
+    // 图片URL缓存，避免sdk.res()重复处理同一URL
+    var _imgCache = {};
+    // 图片加载失败缓存，避免重复重试已失败的URL
+    var _failedLoadCache = {};
+    // 图片懒加载IntersectionObserver
+    var _imgObserver = null;
+    // 待重试的图片列表（TMDB数据加载完成后触发）
+    var _pendingRetries = [];
+
+    function _initImageObserver() {
+      if (!("IntersectionObserver" in window)) return;
+      if (_imgObserver) return;
+      _imgObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (!entry.isIntersecting) return;
+          var img = entry.target;
+          var src = img.getAttribute("data-src");
+          if (src) {
+            img.removeAttribute("data-src");
+            img.src = src;
+          }
+          _imgObserver.unobserve(img);
+        });
+      }, { rootMargin: "200px 0px", threshold: 0.1 });
+    }
+
+    // 豆瓣图片尺寸优化: s(小/w185) m(中/w342) l(大/w500-780)
+    function _doubanSizeUrl(url, size) {
+      if (!url || !size) return url;
+      try {
+        var u = new URL(url);
+        if (u.hostname.indexOf("doubanio.com") === -1) return url;
+        var sizeMap = { "w185": "s", "w200": "s", "w342": "m", "w500": "l", "w780": "l" };
+        var target = sizeMap[size] || "";
+        if (!target) return url;
+        var path = u.pathname;
+        var m = path.match(/\/([sml])[^/]*\//);
+        if (m && m[1] !== target) {
+          u.pathname = path.replace(m[0], "/" + target + m[0].slice(2));
+          return u.toString();
+        }
+      } catch (e) {}
+      return url;
+    }
+
     function displayImage(url, options) {
       if (!url) return "";
-      const opts = options || {};
-      const tmdbPath = tmdbImagePath(url);
+      var opts = options || {};
+      var cacheKey = url + "::" + (opts.size || "");
+      if (_imgCache[cacheKey] !== undefined) return _imgCache[cacheKey];
+      var tmdbPath = tmdbImagePath(url);
+      var result;
       if (tmdbPath) {
-        const result = tmdbImageUrl(tmdbPath, opts.size || "w342");
-        console.log(`[DEBUG-DOUBAN] displayImage: TMDB图片: ${url} -> ${result}`);
-        return result;
+        result = tmdbImageUrl(tmdbPath, opts.size || "w342");
+      } else {
+        // 非TMDB图片: 先优化豆瓣尺寸，再通过sdk.res()处理
+        var sizedUrl = _doubanSizeUrl(url, opts.size);
+        result = nativeImage(sizedUrl);
       }
-      const result = nativeImage(url);
-      console.log(`[DEBUG-DOUBAN] displayImage: 非TMDB图片: ${url} -> ${result}`);
+      // 缓存非空结果
+      if (result) _imgCache[cacheKey] = result;
       return result;
     }
 
@@ -6029,6 +6079,9 @@
       const img = event.target;
       console.log(`[DEBUG-DOUBAN] handleImageError: 图片加载失败, src=${img.getAttribute("src")}`);
       if (img.dataset.fallback === "done") return;
+      const currentSrc = img.getAttribute("src") || "";
+      // 缓存失败URL，避免重复请求
+      if (currentSrc) _failedLoadCache[currentSrc] = true;
       const item = img.closest(".card") && img.closest(".card").__mediaItem;
       if (!item) {
         console.log(`[DEBUG-DOUBAN] handleImageError: 没有找到item，显示placeholder`);
@@ -6036,7 +6089,6 @@
         img.src = placeholderImage();
         return;
       }
-      const currentSrc = img.getAttribute("src") || "";
       const doubanSrc = item.pic || "";
       const tmdbSrc = item.landscape || item.image || "";
       console.log(`[DEBUG-DOUBAN] handleImageError: currentSrc=${currentSrc}, doubanSrc=${doubanSrc}, tmdbSrc=${tmdbSrc}`);
@@ -6047,25 +6099,41 @@
       if (isDoubanImage) {
         if (tmdbSrc) {
           console.log(`[DEBUG-DOUBAN] handleImageError: 切换到TMDB图片: ${tmdbSrc}`);
-          img.src = displayImage(tmdbSrc, { size: "w342" });
+          img.src = displayImage(tmdbSrc, { size: "w185" });
+          // 如果TMDB图片也失败，链式回退到placeholder
+          img.onerror = function(e) {
+            if (img.dataset.fallback === "done") return;
+            console.log(`[DEBUG-DOUBAN] handleImageError: TMDB回退也失败，显示placeholder`);
+            var ts = e.target;
+            ts.dataset.fallback = "done";
+            ts.src = placeholderImage();
+          };
           img.dataset.fallback = "tmdb";
         } else if (item.source === "douban" && !item.tmdbLoaded) {
-          console.log(`[DEBUG-DOUBAN] handleImageError: TMDB数据尚未加载，等待后重试`);
+          console.log(`[DEBUG-DOUBAN] handleImageError: TMDB数据尚未加载，设置onerror等待重试`);
           img.dataset.fallback = "pending";
-          setTimeout(() => {
-            if (img.dataset.fallback === "pending") {
-              const updatedTmdbSrc = item.landscape || item.image || "";
-              if (updatedTmdbSrc) {
-                console.log(`[DEBUG-DOUBAN] handleImageError: 重试成功，切换到TMDB图片: ${updatedTmdbSrc}`);
-                img.src = displayImage(updatedTmdbSrc, { size: "w342" });
-                img.dataset.fallback = "tmdb";
-              } else {
-                console.log(`[DEBUG-DOUBAN] handleImageError: 重试失败，显示placeholder`);
-                img.dataset.fallback = "done";
-                img.src = placeholderImage();
-              }
+          // 用onerror链式等待TMDB数据加载（替代setTimeout）
+          img.onerror = function(e) {
+            var t = e.target;
+            if (t.dataset.fallback !== "pending") return;
+            var updatedTmdbSrc = item.landscape || item.image || "";
+            if (updatedTmdbSrc && !_failedLoadCache[updatedTmdbSrc]) {
+              console.log(`[DEBUG-DOUBAN] handleImageError: onerror重试切换到TMDB图片: ${updatedTmdbSrc}`);
+              t.src = displayImage(updatedTmdbSrc, { size: "w185" });
+              t.onerror = function(ee) {
+                var tt = ee.target;
+                if (tt.dataset.fallback === "done") return;
+                console.log(`[DEBUG-DOUBAN] handleImageError: TMDB回退也失败，显示placeholder`);
+                tt.dataset.fallback = "done";
+                tt.src = placeholderImage();
+              };
+              t.dataset.fallback = "tmdb";
+            } else {
+              console.log(`[DEBUG-DOUBAN] handleImageError: 重试失败，显示placeholder`);
+              t.dataset.fallback = "done";
+              t.src = placeholderImage();
             }
-          }, 2000);
+          };
         } else {
           console.log(`[DEBUG-DOUBAN] handleImageError: 没有TMDB图片可用，显示placeholder`);
           img.dataset.fallback = "done";
@@ -7604,8 +7672,8 @@
       button.__mediaItem = item;
       button.classList.toggle("blocked", isBlocked(item));
       const rating = item.voteAverage ? Number(item.voteAverage).toFixed(1) : "";
-      const poster = displayImage(landscape ? item.landscape || item.image || item.pic : item.pic, { size: landscape ? "w780" : "w342" });
-      const imageOpt = { loading: index < initialGridBatchSize(null) ? "eager" : "lazy", fetchPriority: index < 8 ? "high" : "" };
+      const poster = displayImage(landscape ? item.landscape || item.image || item.pic : item.pic, { size: landscape ? "w780" : "w185" });
+      const imageOpt = { loading: index < 8 ? "eager" : "lazy", fetchPriority: index < 8 ? "high" : "low" };
       const progress = Math.min(100, Math.max(0, Number(item.progress || 0)));
       button.innerHTML = recent ? `
         <img class="poster" alt="" ${imageAttrs(poster, imageOpt)} onerror="handleImageError(event)">
