@@ -77,6 +77,9 @@ android {
         exclude group: 'stax', module: 'stax-api'
         exclude group: 'xpp3', module: 'xpp3'
         exclude group: 'com.android.support'
+        // Avoid okhttp jvm variant clash with okhttp-android
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp-jvm'
+        exclude group: 'com.squareup.okhttp3', module: 'okhttp'
         resolutionStrategy {
             force libs.okhttp
             eachDependency { details ->
