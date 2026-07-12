@@ -9,12 +9,12 @@ android {
     compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        minSdk libs.versions.minSdk.get().toInteger()
+        minSdk 24
         targetSdk libs.versions.targetSdk.get().toInteger()
         python {
             version = "3.10"
             pip {
-                install("-r", "requirements.txt")
+                install("-r", "chaquo/requirements.txt")
             }
         }
     }
