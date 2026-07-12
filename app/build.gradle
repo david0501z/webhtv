@@ -12,12 +12,12 @@ if (localPropsFile.exists()) {
 def hasReleaseSigning = localProps['storeFile'] && localProps['keyAlias'] && localProps['storePassword']
 
 android {
-    namespace = 'com.fongmi.android.tv'
+    namespace = 'com.fongmi.android.tw'
 
     compileSdk libs.versions.compileSdk.get().toInteger()
 
     defaultConfig {
-        applicationId "com.fongmi.android.tv"
+        applicationId "com.fongmi.android.tw"
         minSdk libs.versions.minSdk.get().toInteger()
         targetSdk libs.versions.targetSdk.get().toInteger()
         versionCode 552
