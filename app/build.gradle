@@ -93,6 +93,17 @@ android {
         disable 'ExpiredTargetSdkVersion'
     }
 
+    packagingOptions {
+        resources {
+            exclude 'META-INF/versions/9/OSGI-INF/MANIFEST.MF'
+            exclude 'META-INF/DEPENDENCIES'
+            exclude 'META-INF/LICENSE'
+            exclude 'META-INF/LICENSE.txt'
+            exclude 'META-INF/NOTICE'
+            exclude 'META-INF/NOTICE.txt'
+        }
+    }
+
     compileOptions {
         coreLibraryDesugaringEnabled = true
         sourceCompatibility JavaVersion.VERSION_21
